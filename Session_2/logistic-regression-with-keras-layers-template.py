@@ -3,11 +3,11 @@
 Team #name
 """
 from __future__ import print_function, absolute_import
-
 import numpy as np
 import matplotlib.pyplot as plt
 
-from keras.layers import Input, Dense
+
+from keras.layers import Input, Dense, Activation
 from keras.models import Model
 
 from pnslib import utils
@@ -18,7 +18,7 @@ from pnslib import ml
 # https://github.com/zalandoresearch/fashion-mnist#labels
 # >>>>> Try to change the class list for other classes <<<<<
 (train_x, train_y, test_x, test_y) = utils.binary_fashion_mnist_load(
-    class_list=[0, 1],
+    class_list=[3, 7],
     flatten=True)
 
 print ("[MESSAGE] Dataset is loaded.")
@@ -43,8 +43,23 @@ test_X = ml.pca_fit(test_x, R, n_retained)
 
 print ("[MESSAGE] PCA is complete")
 
+
+num_features = train_X.shape[1]
 # define a model
 # >>>>> PUT YOUR CODE HERE <<<<<
+x = Input((num_features,), name="input_layer")
+y = Dense(1, name="linear_layer")(x)
+y = Activation("sigmoid")(y)
+model = Model(x, y)
+
+model.compile(loss="binary_crossentropy",
+              optimizer="sgd",
+              metrics=["mse"])
+
+model.fit(
+    x=train_X, y=train_y,
+    batch_size=64, epochs=30,
+    validation_data=(test_X, test_y))
 
 
 
@@ -84,7 +99,7 @@ ground_truths = test_y[:10]  # fetch first 10 ground truth prediction
 # predict with the model
 preds = (model.predict(test_X_vis) > 0.5)[:, 0].astype(np.int)
 
-labels = ["Tshirt/top", "Trouser"]
+labels = ["Dress", "Shoe"]
 
 plt.figure()
 for i in xrange(2):
