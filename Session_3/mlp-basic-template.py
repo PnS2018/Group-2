@@ -55,7 +55,7 @@ input_dim = train_X.shape[1]
 
 # defining the batch size and epochs
 batch_size = 64
-num_epochs = 20
+num_epochs = 50
 
 # defining the learning rate
 lr = 0.1
@@ -75,7 +75,7 @@ input_tensor = K.placeholder(shape=(batch_size, input_dim), dtype='float32')
 
 weight_list = (K.random_uniform_variable(shape=(input_dim, num_units[0]), low=-1., high=1., dtype='float32'),)
 
-bias_list = (K.random_uniform_variable(shape=(num_units[0],), low=-1., high=1., dtype='float32'),)
+bias_list = (K.zeros(shape=(num_units[0],), dtype='float32'),)
 
 hl_tensor = K.relu(K.dot(input_tensor, weight_list[0]) + bias_list[0], alpha=0.0)
  
@@ -85,43 +85,48 @@ for i in range(num_layers - 1):
 
     weight_list += weight_tensor
 
-    bias_tensor = (K.random_uniform_variable(shape=(num_units[i + 1],), low=-1., high=1., dtype='float32'),)
+    bias_tensor = (K.zeros(shape=(num_units[i + 1],), dtype='float32'),)
 
     bias_list += bias_tensor
 
     hl_tensor = K.relu(K.dot(hl_tensor, weight_tensor[0]) + bias_tensor[0], alpha=0.0)
 
-lt_tensor = K.ones((num_units[num_layers - 1], num_classes), dtype='float32')
-output_tensor = K.relu(K.dot(hl_tensor, lt_tensor), alpha=0.0)
+lt_tensor = (K.random_uniform_variable((num_units[num_layers - 1], num_classes), low=-1., high=1., dtype='float32'),)
+
+bias_final = (K.zeros(shape=(num_classes,), dtype='float32'),)
+
+weight_list += lt_tensor
+bias_list += bias_final
+ 
+output_tensor = K.relu(K.dot(hl_tensor, lt_tensor[0]) + bias_final[0], alpha=0.0)
 
 target_tensor = K.placeholder(shape=(batch_size, num_classes), dtype='float32')
 # defining the mean loss tensor
-loss_tensor = K.mean(K.binary_crossentropy(target_tensor,
+loss_tensor = K.mean(K.categorical_crossentropy(target_tensor,
                                            output_tensor))
 
 grad_list = []
-for i in range(num_layers):
+for i in range(num_layers + 1):
     
     gradient_tensors = (K.gradients(loss=loss_tensor, variables=[weight_list[i], bias_list[i]]),)
     grad_list += gradient_tensors
     
 update_list = []
 
-for i in range(num_layers):
+for i in range(num_layers + 1):
     gradient_tensors = grad_list[i]
     updates = (weight_list[i], weight_list[i] - lr * gradient_tensors[0]), (bias_list[i], bias_list[i] - lr * gradient_tensors[1])
-    update_list += (updates,)
-    
-for i in range(num_layers):
-    train_function = K.function(inputs=(input_tensor, target_tensor),
-                            outputs=(loss_tensor,),
-                            updates=update_list[i])
-    
-prediction_tensor = K.cast(K.greater(output_tensor, 0.5), dtype='float32')
+    update_list += updates
 
+train_function = K.function(inputs=(input_tensor, target_tensor),
+                        outputs=(loss_tensor,),
+                        updates=update_list)
+    
+prediction_tensor = K.cast(K.argmax(output_tensor, 1), dtype='float32')
+target_tensor_cast = K.cast(K.argmax(target_tensor, 1), dtype='float32')
 # computing the accuracy based on how many prediction tensors equal the target
 # tensors
-accuracy_tensor = K.equal(prediction_tensor, target_tensor)
+accuracy_tensor = K.equal(prediction_tensor, target_tensor_cast)
 
 # a test function to evaluate the performance of the model
 test_function = K.function(inputs=(input_tensor, target_tensor),
